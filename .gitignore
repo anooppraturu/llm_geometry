@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual envs
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model / data caches
+.cache/
+hf_cache/
+wandb/
+
+# OS
+.DS_Store
+
+# Large artifacts
+*.pt
+*.pth
+*.npy
+*.npz
