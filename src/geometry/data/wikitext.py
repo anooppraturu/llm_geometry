@@ -6,6 +6,9 @@ from pathlib import Path
 from datasets import Dataset, load_dataset, load_from_disk
 from transformers import PreTrainedTokenizerBase
 
+import torch
+from torch.utils.data import DataLoader
+
 
 def load_wikitext(split: str = "train", streaming: bool = False):
     """
@@ -113,3 +116,13 @@ def load_or_build_cached_blocks(
     cache_dir.parent.mkdir(parents=True, exist_ok=True)
     lm_ds.save_to_disk(str(cache_dir))
     return lm_ds
+
+def make_block_dataloader(ds, batch_size=8, shuffle=True, num_workers=0):
+    ds = ds.with_format("torch", columns=["input_ids"])
+
+    def collate(batch):
+        input_ids = torch.stack([x["input_ids"] for x in batch], dim=0)
+        attention_mask = torch.ones_like(input_ids)
+        return {"input_ids": input_ids, "attention_mask": attention_mask}
+
+    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, collate_fn=collate)
