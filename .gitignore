@@ -24,3 +24,10 @@ wandb/
 *.pth
 *.npy
 *.npz
+
+# Editable install metadata
+*.egg-info/
+src/*.egg-info/
+
+# HuggingFace / data cache
+data_cache/
