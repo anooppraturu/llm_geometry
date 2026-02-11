@@ -113,4 +113,39 @@ class LayerStatsCollector:
 
             if include.get("mlp", False):
                 self.stats["mlp"][l].update(self._proj(hooks.mlp_out[l]))
+
+    def state_dict(self):
+        def dtype_to_str(dt):
+            return str(dt).replace("torch.", "")
+
+        out = {
+            "Df": int(self.Df),
+            "n_layers": int(self.n_layers),
+            "state_at": self.state_at,
+            "proj_dtype": dtype_to_str(self.proj_dtype),
+        }
+
+        out["stats"] = {}
+        for kind in ["state", "attn", "mlp"]:
+            out["stats"][kind] = {}
+            for l in range(self.n_layers):
+                rs = self.stats[kind][l]
+                out["stats"][kind][l] = {
+                    "n": int(rs.n),
+                    "mean": rs.mean.detach().to("cpu"),
+                    "M2": rs.M2.detach().to("cpu"),
+                }
+        return out
+    
+    def load_state_dict(self, sd):
+        assert sd["Df"] == self.Df
+        assert sd["n_layers"] == self.n_layers
+        assert sd["state_at"] == self.state_at
+
+        for kind, layers in sd["stats"].items():
+            for l, s in layers.items():
+                rs = self.stats[kind][int(l)]
+                rs.n = int(s["n"])
+                rs.mean = s["mean"].to(rs.mean.device, dtype=rs.mean.dtype)
+                rs.M2 = s["M2"].to(rs.M2.device, dtype=rs.M2.dtype)
         
