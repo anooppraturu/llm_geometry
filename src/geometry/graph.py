@@ -6,6 +6,17 @@ import torch
 import numpy as np
 from scipy.sparse import csr_matrix
 
+def _symmetrize_csr(A: csr_matrix, mode: str = "max") -> csr_matrix:
+    AT = A.T.tocsr()
+    if mode == "avg":
+        return 0.5 * (A + AT)
+    elif mode == "sum":
+        return A + AT
+    elif mode == "max":
+        # elementwise maximum
+        return A.maximum(AT)
+    else:
+        raise ValueError(f"Unknown symmetrize mode: {mode}")
 
 @dataclass
 class Graph:
@@ -30,6 +41,39 @@ class Graph:
     @property
     def k(self) -> int:
         return self.indices.shape[1]
+    
+    def to_csr(
+        self,
+        symmetrize: bool = True,
+        sym_mode: str = "max",
+        include_self_loops: bool = False,
+    ) -> csr_matrix:
+        """
+        Build sparse adjacency matrix A (N x N) from knn indices/weights.
+        """
+        N, k = self.indices.shape
+
+        idx = self.indices.reshape(-1)
+        w = self.weights.reshape(-1)
+
+        # mask out invalid edges and zero weights
+        mask = (idx >= 0) & (w > 0)
+        idx = idx[mask]
+        w = w[mask]
+
+        rows = np.repeat(np.arange(N), k)[mask]
+        cols = idx.astype(np.int64)
+
+        A = csr_matrix((w, (rows, cols)), shape=(N, N))
+
+        if not include_self_loops:
+            A.setdiag(0)
+            A.eliminate_zeros()
+
+        if symmetrize:
+            A = _symmetrize_csr(A, mode=sym_mode)
+
+        return A
     
 
 
