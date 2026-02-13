@@ -94,14 +94,14 @@ class LayerCoordinates:
         return self.whiteners[layer].whiten_updates(dY)
     
     @classmethod
-    def from_stats(cls, stats_dict, U_f: torch.Tensor, epsilon: float = 1e-5):
+    def from_stats(cls, stats_dict, epsilon: float = 1e-5):
         """
         Construct LayerCoordinates from saved whitening stats.
         You'll fill in:
             - compute covariance from M2 / n
             - compute whitening matrix (e.g. via eigh)
         """
-        projector = FunctionalProjector(U_f)
+        projector = FunctionalProjector(stats_dict['U_f'])
         state_at = stats_dict['state_at']
 
         whiteners = {}

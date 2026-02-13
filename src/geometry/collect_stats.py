@@ -123,6 +123,7 @@ class LayerStatsCollector:
             "n_layers": int(self.n_layers),
             "state_at": self.state_at,
             "proj_dtype": dtype_to_str(self.proj_dtype),
+            "U_f": self.U_f,
         }
 
         out["stats"] = {}

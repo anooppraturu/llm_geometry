@@ -68,7 +68,7 @@ def main():
 
     #save collected stats data
     state = collector.state_dict()
-    torch.save(state, 'data_cache/stats/pythia70m_wikitext103_train_bs256_Df128_stateAtOut.pt')
+    torch.save(state, 'data_cache/stats/pythia70m_wikitext103_train_bs256_Df128_stateAtOut_withUf.pt')
 
 
 if __name__ == "__main__":
