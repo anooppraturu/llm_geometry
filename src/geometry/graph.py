@@ -88,7 +88,6 @@ def build_knn_graph(
     """
     Y: (N, D) whitened points (torch tensor, CPU)
     Returns Graph object.
-    TODO: sparse adjacency matrix for spectral diffusion methods
     """
     if metric != "euclidean":
         raise NotImplementedError
