@@ -68,15 +68,12 @@ class LayerCoordinates:
         self,
         projector: FunctionalProjector,
         whiteners: Dict[int, WhiteningTransform],
-        state_at: str = "out",
     ):
         """
         whiteners: dict[layer_index -> WhiteningTransform]
-        state_at: "in" or "out"
         """
         self.projector = projector
         self.whiteners = whiteners
-        self.state_at = state_at
 
     def state(self, layer: int, X: torch.Tensor) -> torch.Tensor:
         """
@@ -97,12 +94,9 @@ class LayerCoordinates:
     def from_stats(cls, stats_dict, epsilon: float = 1e-5):
         """
         Construct LayerCoordinates from saved whitening stats.
-        You'll fill in:
-            - compute covariance from M2 / n
-            - compute whitening matrix (e.g. via eigh)
+        Only load hidden state whiteners.
         """
         projector = FunctionalProjector(stats_dict['U_f'])
-        state_at = stats_dict['state_at']
 
         whiteners = {}
         for l, stats in stats_dict['stats']['state'].items():
@@ -120,4 +114,4 @@ class LayerCoordinates:
 
             whiteners[l] = WhiteningTransform(mu=mu, W=W)
 
-        return cls(projector = projector, whiteners = whiteners, state_at = state_at)
+        return cls(projector = projector, whiteners = whiteners)

@@ -52,26 +52,25 @@ class RunningStats:
 class LayerStatsCollector:
     """
     Collects running mean/cov per layer in functional coords, for different kinds:
-      - state: hidden_states[l] or hidden_states[l+1] (configurable)
+      - state: hidden_states[h] where n_hidden = n_layers + 1
       - attn: hooks.attn_out[l]
       - mlp : hooks.mlp_out[l]
     """
-    def __init__(self, n_layers: int, U_f: torch.Tensor, state_at: Literal["in", "out"] = "out", proj_dtype=torch.float32):
+    def __init__(self, n_layers: int, U_f: torch.Tensor, proj_dtype=torch.float32):
         """
         U_f: (d_model, Df) orthonormal basis (CPU is fine)
-        state_at:
-          - "in"  uses hidden_states[l]   (entering block l)
-          - "out" uses hidden_states[l+1] (leaving block l)
+        hidden 1         hidden 2         hidden 3     hidden n         hidden n+1
+        -------- layer 1 -------- layer 2 -------- ... -------- layer n --------
         """
         assert U_f.ndim == 2
         self.proj_dtype = proj_dtype
         self.U_f = U_f.to('cpu', dtype=self.proj_dtype)
         self.Df = U_f.shape[1]
         self.n_layers = n_layers
-        self.state_at = state_at
+        self.n_hidden = n_layers + 1
 
         self.stats: Dict[Kind, Dict[int, RunningStats]] = {
-            "state": {l: RunningStats(self.Df) for l in range(n_layers)},
+            "state": {l: RunningStats(self.Df) for l in range(n_layers + 1)},
             "attn": {l: RunningStats(self.Df) for l in range(n_layers)},
             "mlp": {l: RunningStats(self.Df) for l in range(n_layers)}
         }
@@ -102,12 +101,12 @@ class LayerStatsCollector:
         if include is None:
             include = {"state": True, "attn": True, "mlp": True}
 
-        for l in range(self.n_layers):
+        for h in range(self.n_hidden):
             if include.get("state", False):
-                # There are n_layers + 1 hidden statea
-                X = hidden_states[l+1] if self.state_at == "out" else hidden_states[l]
-                self.stats["state"][l].update(self._proj(X))
+                X = hidden_states[h]
+                self.stats["state"][h].update(self._proj(X))
 
+        for l in range(self.n_layers):
             if include.get("attn", False):
                 self.stats["attn"][l].update(self._proj(hooks.attn_out[l]))
 
@@ -121,13 +120,21 @@ class LayerStatsCollector:
         out = {
             "Df": int(self.Df),
             "n_layers": int(self.n_layers),
-            "state_at": self.state_at,
             "proj_dtype": dtype_to_str(self.proj_dtype),
             "U_f": self.U_f,
         }
 
         out["stats"] = {}
-        for kind in ["state", "attn", "mlp"]:
+        out["stats"]["state"] = {}
+        for h in range(self.n_hidden):
+            rs = self.stats["state"][h]
+            out["stats"]["state"][h] = {
+                "n": int(rs.n),
+                "mean": rs.mean.detach().to("cpu"),
+                "M2": rs.M2.detach().to("cpu"),
+            }
+
+        for kind in ["attn", "mlp"]:
             out["stats"][kind] = {}
             for l in range(self.n_layers):
                 rs = self.stats[kind][l]
@@ -141,7 +148,6 @@ class LayerStatsCollector:
     def load_state_dict(self, sd):
         assert sd["Df"] == self.Df
         assert sd["n_layers"] == self.n_layers
-        assert sd["state_at"] == self.state_at
 
         for kind, layers in sd["stats"].items():
             for l, s in layers.items():
