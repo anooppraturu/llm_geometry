@@ -1,6 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Optional
+from typing import Tuple
+import numpy as np
 
 import torch
 
@@ -115,3 +117,51 @@ class LayerCoordinates:
             whiteners[l] = WhiteningTransform(mu=mu, W=W)
 
         return cls(projector = projector, whiteners = whiteners)
+    
+
+@torch.no_grad()
+def orthogonal_procrustes_align(
+    X: np.ndarray,
+    Y: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Align X to Y with an orthogonal transform + translation:
+        X_aligned = X @ R + t
+
+    Args:
+        X, Y: (N, D) tensors, corresponding points in same order
+        allow_reflection: if False, enforce det(R)=+1
+
+    Returns:
+        X_aligned: (N, D)
+        R: (D, D) orthogonal matrix
+        t: (D,) translation vector
+    """
+    assert X.shape == Y.shape and X.ndim == 2
+    N, D = X.shape
+
+    # center
+    muX = X.mean(axis=0, keepdims=True)   # (1, D)
+    muY = Y.mean(axis=0, keepdims=True)   # (1, D)
+    Xc = X - muX
+    Yc = Y - muY
+
+    # cross-covariance
+    M = Xc.T @ Yc  # (D, D)
+
+    # SVD
+    U, S, Vh = np.linalg.svd(M, full_matrices=False)
+
+    R = U @ Vh  # (D, D)
+
+    # enforce det(R)=+1 (no reflection)
+    if np.linalg.det(R) < 0:
+        U = U.clone()
+        U[:, -1] *= -1
+        R = U @ Vh
+
+    # translation
+    t = (muY - muX @ R).squeeze(0)  # (D,)
+
+    X_aligned = X @ R + t
+    return X_aligned, R, t
