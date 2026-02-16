@@ -71,4 +71,4 @@ class diffusion_pipeline:
         graphs = self.build_graphs(functional_coords, k=k, mutual=mutual)
 
         diffusion_embeds = [self.diffusion.fit_transform(graph = g, t=t) for g in graphs]
-        return diffusion_embeds
+        return hidden_states, functional_coords, graphs, diffusion_embeds
